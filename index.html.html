@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>방귀 추진 러너 - 운동량 보존</title>
+<style>
+:root{--bg:#f6f7fb;--card:#fff;--tx:#1d2330;--mut:#5d6678;--ac:#e8590c;--ln:#d9dde7;--sky:#dff1ff;--gr:#8bc34a;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#14171f;--card:#1e222d;--tx:#eef0f6;--mut:#9aa3b5;--ac:#ff922b;--ln:#343a4a;--sky:#1f3350;--gr:#4f7a2a}}
+:root[data-theme="dark"]{--bg:#14171f;--card:#1e222d;--tx:#eef0f6;--mut:#9aa3b5;--ac:#ff922b;--ln:#343a4a;--sky:#1f3350;--gr:#4f7a2a}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif;padding:14px}
+.w{max-width:760px;margin:0 auto}
+h1{font-size:1.3rem;margin:4px 0}
+p.s{color:var(--mut);margin:0 0 10px;font-size:.92rem}
+.card{background:var(--card);border:1px solid var(--ln);border-radius:12px;padding:12px;margin-bottom:10px}
+canvas{width:100%;height:auto;border-radius:10px;display:block;cursor:pointer;touch-action:manipulation}
+.row{display:flex;gap:14px;flex-wrap:wrap}
+.row label{flex:1 1 220px;font-size:.9rem}
+input[type=range]{width:100%}
+.eq{font-family:ui-monospace,Menlo,monospace;font-size:.88rem;line-height:1.7;overflow-x:auto}
+.eq b{color:var(--ac)}
+button{background:var(--ac);color:#fff;border:0;border-radius:8px;padding:8px 14px;font-size:.95rem;cursor:pointer}
+.g{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center}
+.g div{background:var(--bg);border-radius:8px;padding:8px;font-size:.8rem;color:var(--mut)}
+.g strong{display:block;font-size:1.15rem;color:var(--tx)}
+</style>
+</head>
+<body>
+<div class="w">
+<h1>💨 방귀 추진 러너</h1>
+<p class="s">달리는 사람을 <b>클릭</b>해 보세요! 방귀를 뒤로 내보내면 사람은 앞으로 조금 더 빨라져요. (운동량 보존)</p>
+<div class="card"><canvas id="c" width="720" height="260"></canvas></div>
+
+<div class="card g">
+<div>속도 V<strong id="vV">0</strong></div>
+<div>이번 방귀로 늘어난 속도 Δv<strong id="vD">0</strong></div>
+<div>방귀 횟수<strong id="vN">0</strong></div>
+</div>
+
+<div class="card row">
+<label>방귀의 질량 Δm: <b id="lm">200</b> g<input id="sm" type="range" min="50" max="1000" step="50" value="200"></label>
+<label>방귀가 나가는 속도 u: <b id="lu">30</b> m/s<input id="su" type="range" min="5" max="100" step="5" value="30"></label>
+<div style="flex:1 1 100%"><button id="b">방귀 뿡! 💨</button> <button id="r" style="background:var(--mut)">처음부터</button></div>
+</div>
+
+<div class="card eq" id="eq"></div>
+<p class="s">사람 질량 M = 60 kg. 방귀 속도 u는 사람 기준으로 뒤쪽 방향의 속도예요. 땅에서 보면 방귀는 (V − u)로 움직여요.</p>
+</div>
+<script>
+const cv=document.getElementById('c'),x=cv.getContext('2d');
+const M0=60,S=22,RX=170,GY=200;
+let pos,V,n,dv,phase,puffs,last,lastData,flash;
+function reset(){pos=0;V=3;n=0;dv=0;phase=0;puffs=[];lastData=null;flash=0;upd()}
+function css(k){return getComputedStyle(document.documentElement).getPropertyValue(k).trim()}
+function fart(){
+  const dm=sm.value/1000,u=+su.value;
+  const M=M0,Vb=V;
+  const d=dm*u/(M-dm);           // (M-dm)Δv = dm·u
+  V+=d;dv=d;n++;flash=0.25;
+  puffs.push({x:pos-0.5,v:Vb-u,life:0,r:10+dm*30});
+  lastData={M,dm,u,Vb,d,Va:V};
+  upd();
+}
+function upd(){
+  vV.textContent=V.toFixed(3)+' m/s';vD.textContent=dv.toFixed(3)+' m/s';vN.textContent=n;
+  lm.textContent=sm.value*1;lu.textContent=su.value;
+  const d=lastData;
+  if(!d){eq.innerHTML='<b>M·V = (M−Δm)(V+Δv) + Δm(V−u)</b><br>방귀를 뀌면 여기에 계산이 나타나요.';return}
+  const before=d.M*d.Vb,after=(d.M-d.dm)*d.Va+d.dm*(d.Vb-d.u);
+  eq.innerHTML=
+  '<b>M·V = (M−Δm)(V+Δv) + Δm(V−u)</b><br>'+
+  '왼쪽(방귀 전): '+d.M+' × '+d.Vb.toFixed(3)+' = <b>'+before.toFixed(3)+'</b><br>'+
+  '오른쪽(방귀 후): '+(d.M-d.dm).toFixed(1)+' × '+d.Va.toFixed(3)+' + '+d.dm.toFixed(2)+' × '+(d.Vb-d.u).toFixed(2)+' = <b>'+after.toFixed(3)+'</b><br>'+
+  '정리하면 Δv = Δm·u / (M−Δm) = '+d.dm.toFixed(2)+'×'+d.u+' / '+(d.M-d.dm).toFixed(1)+' = <b>'+d.d.toFixed(3)+' m/s</b>';
+}
+function person(){
+  const k=css('--tx');x.strokeStyle=k;x.fillStyle=k;x.lineWidth=5;x.lineCap='round';
+  const hx=RX,hy=GY-95,bx=RX-6,by=GY-50,s=Math.sin(phase),c=Math.cos(phase);
+  ex(()=>{ // body
+    ln(hx,hy+12,bx,by);
+    ln(hx,hy+22,hx+22*s+10,hy+45);ln(hx,hy+22,hx-22*s+10,hy+45);
+    ln(bx,by,bx+26*c+8,GY-6-Math.max(0,-s)*10);ln(bx,by,bx-26*c+8,GY-6-Math.max(0,s)*10);
+  });
+  ex(()=>{ctx_circle(hx+4,hy,13)});
+  if(flash>0){ex(()=>{ctx_circle(bx-6,by+4,8,'#7b4a1e')})}
+}
+function ex(f){f()}
+function ln(a,b,c,d){ex2=ex;x2(a,b,c,d)}
+let ex2;function x2(a,b,c,d){ctxPath(a,b,c,d)}
+function ctxPath(a,b,c,d){ctxB();ctxM(a,b);ctxL(c,d);ctxS()}
+function ctxB(){ctxo.beginPath()}function ctxM(a,b){ctxo.moveTo(a,b)}function ctxL(a,b){ctxo.lineTo(a,b)}function ctxS(){ctxo.stroke()}
+const ctxo=x;
+function ctx_circle(a,b,r,col){ctxo.beginPath();ctxo.arc(a,b,r,0,7);if(col){ctxo.fillStyle=col;ctxo.fill()}else ctxo.fill()}
+function draw(){
+  ctxo.clearRect(0,0,720,260);
+  ctxo.fillStyle=css('--sky');ctxo.fillRect(0,0,720,GY);
+  ctxo.fillStyle=css('--gr');ctxo.fillRect(0,GY,720,60);
+  ctxo.strokeStyle=css('--tx');ctxo.lineWidth=2;ctxo.fillStyle=css('--tx');ctxo.font='12px sans-serif';
+  const off=(pos*S)%110;
+  for(let i=-1;i<8;i++){const X=i*110-off;ctxo.beginPath();ctxo.moveTo(X,GY);ctxo.lineTo(X,GY+12);ctxo.stroke();}
+  puffs.forEach(p=>{
+    const X=RX+(p.x-pos)*S,a=Math.max(0,1-p.life/2.5),k=(p.r/14)*(1+p.life*0.6);
+    ctxo.save();ctxo.translate(X,GY-50);ctxo.scale(k,k);ctxo.globalAlpha=a;
+    ctxo.strokeStyle='#7b4a1e';ctxo.fillStyle='#7b4a1e';ctxo.lineWidth=5;ctxo.lineCap='round';
+    for(let i=-1;i<=1;i++){const y=i*9+Math.sin(p.life*8+i)*2;ctxo.beginPath();ctxo.moveTo(8,y);ctxo.quadraticCurveTo(-2,y-5,-12,y);ctxo.quadraticCurveTo(-22,y+5,-30,y);ctxo.stroke();}
+    [[-46,-17,17],[-46,17,17],[-34,0,15],[-60,-24,11],[-60,24,11],[-62,0,8]].forEach(c=>{ctxo.beginPath();ctxo.arc(c[0],c[1],c[2],0,7);ctxo.fill();});
+    ctxo.restore();
+  });
+  person();
+  ctxo.fillStyle=css('--tx');ctxo.font='bold 15px sans-serif';
+  ctxo.fillText('V = '+V.toFixed(2)+' m/s  →',RX-50,GY-125);
+  if(!n){ctxo.font='13px sans-serif';ctxo.fillText('👆 나를 클릭!',RX-40,GY-145)}
+}
+function loop(t){
+  const dt=Math.min(.05,(t-(last||t))/1000);last=t;
+  pos+=V*dt;phase+=V*dt*3.2;flash=Math.max(0,flash-dt);
+  puffs.forEach(p=>{p.x+=p.v*dt;p.life+=dt});puffs=puffs.filter(p=>p.life<2.5);
+  draw();requestAnimationFrame(loop);
+}
+cv.addEventListener('click',e=>{
+  const r=cv.getBoundingClientRect(),X=(e.clientX-r.left)*720/r.width;
+  if(Math.abs(X-RX)<70)fart();
+});
+b.onclick=fart;r.onclick=reset;
+sm.oninput=su.oninput=()=>{lm.textContent=sm.value*1;lu.textContent=su.value};
+reset();requestAnimationFrame(loop);
+</script>
+</body>
+</html>
