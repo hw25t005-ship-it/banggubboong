@@ -40,6 +40,7 @@ button{background:var(--ac);color:#fff;border:0;border-radius:8px;padding:8px 14
 </div>
 
 <div class="card row">
+<div style="flex:1 1 100%"><button id="m1">🔬 현실 모드</button> <button id="m2">🎈 과장 모드</button><div id="mt" style="font-size:.85rem;color:var(--mut);margin-top:6px"></div></div>
 <label>방귀의 질량 Δm: <b id="lm">200</b> g<input id="sm" type="range" min="50" max="1000" step="50" value="200"></label>
 <label>방귀가 나가는 속도 u: <b id="lu">30</b> m/s<input id="su" type="range" min="5" max="100" step="5" value="30"></label>
 <div style="flex:1 1 100%"><button id="b">방귀 뿡! 💨</button> <button id="r" style="background:var(--mut)">처음부터</button></div>
@@ -51,7 +52,17 @@ button{background:var(--ac);color:#fff;border:0;border-radius:8px;padding:8px 14
 <script>
 const cv=document.getElementById('c'),x=cv.getContext('2d');
 const M0=60,S=22,RX=170,GY=200;
-let pos,V,n,dv,phase,puffs,last,lastData,flash;
+let pos,V,n,dv,phase,puffs,last,lastData,flash,real=false;
+const fv=q=>real?q.toExponential(2):q.toFixed(3);
+function setMode(r){
+  real=r;
+  const a=r?[0.05,0.5,0.05,0.15,1,10,0.5,3]:[50,1000,50,200,5,100,5,30];
+  sm.min=a[0];sm.max=a[1];sm.step=a[2];sm.value=a[3];
+  su.min=a[4];su.max=a[5];su.step=a[6];su.value=a[7];
+  m1.style.opacity=r?1:.45;m2.style.opacity=r?.45:1;
+  mt.textContent=r?'실제 방귀에 가까운 값이에요 (약 0.15 g, 약 3 m/s). 속도 변화가 거의 0이에요!':'속도 변화가 눈에 보이도록 질량과 속도를 크게 과장했어요.';
+  reset();
+}
 function reset(){pos=0;V=3;n=0;dv=0;phase=0;puffs=[];lastData=null;flash=0;upd()}
 function css(k){return getComputedStyle(document.documentElement).getPropertyValue(k).trim()}
 function fart(){
@@ -64,16 +75,17 @@ function fart(){
   upd();
 }
 function upd(){
-  vV.textContent=V.toFixed(3)+' m/s';vD.textContent=dv.toFixed(3)+' m/s';vN.textContent=n;
+  const dg=real?7:3;
+  vV.textContent=V.toFixed(dg)+' m/s';vD.textContent=fv(dv)+' m/s';vN.textContent=n;
   lm.textContent=sm.value*1;lu.textContent=su.value;
   const d=lastData;
   if(!d){eq.innerHTML='<b>M·V = (M−Δm)(V+Δv) + Δm(V−u)</b><br>방귀를 뀌면 여기에 계산이 나타나요.';return}
   const before=d.M*d.Vb,after=(d.M-d.dm)*d.Va+d.dm*(d.Vb-d.u);
   eq.innerHTML=
   '<b>M·V = (M−Δm)(V+Δv) + Δm(V−u)</b><br>'+
-  '왼쪽(방귀 전): '+d.M+' × '+d.Vb.toFixed(3)+' = <b>'+before.toFixed(3)+'</b><br>'+
-  '오른쪽(방귀 후): '+(d.M-d.dm).toFixed(1)+' × '+d.Va.toFixed(3)+' + '+d.dm.toFixed(2)+' × '+(d.Vb-d.u).toFixed(2)+' = <b>'+after.toFixed(3)+'</b><br>'+
-  '정리하면 Δv = Δm·u / (M−Δm) = '+d.dm.toFixed(2)+'×'+d.u+' / '+(d.M-d.dm).toFixed(1)+' = <b>'+d.d.toFixed(3)+' m/s</b>';
+  '왼쪽(방귀 전): '+d.M+' × '+d.Vb.toFixed(dg)+' = <b>'+before.toFixed(dg)+'</b><br>'+
+  '오른쪽(방귀 후): '+(d.M-d.dm).toFixed(real?4:1)+' × '+d.Va.toFixed(dg)+' + '+d.dm.toFixed(real?5:2)+' × '+(d.Vb-d.u).toFixed(2)+' = <b>'+after.toFixed(dg)+'</b><br>'+
+  '정리하면 Δv = Δm·u / (M−Δm) = '+d.dm.toFixed(real?5:2)+'×'+d.u+' / '+(d.M-d.dm).toFixed(real?4:1)+' = <b>'+fv(d.d)+' m/s</b> (Δm은 kg 단위)';
 }
 function person(){
   const k=css('--tx');x.strokeStyle=k;x.fillStyle=k;x.lineWidth=5;x.lineCap='round';
@@ -125,7 +137,8 @@ cv.addEventListener('click',e=>{
 });
 b.onclick=fart;r.onclick=reset;
 sm.oninput=su.oninput=()=>{lm.textContent=sm.value*1;lu.textContent=su.value};
-reset();requestAnimationFrame(loop);
+m1.onclick=()=>setMode(true);m2.onclick=()=>setMode(false);
+setMode(false);requestAnimationFrame(loop);
 </script>
 </body>
 </html>
